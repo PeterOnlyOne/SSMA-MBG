@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans
+	xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.2.xsd
+	http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.2.xsd
+	http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.2.xsd
+	http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.2.xsd
+	">
+	<!-- spring是bean的容器（service+repository） -->
+	<context:component-scan base-package="cn">
+		<context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+	</context:component-scan>
+	<!-- 所有数据库操作的源头，实现自接口DataSource
+		 DriverManagerDataSource(请求产生一个连接，用完关闭。连接池，连接重用)
+		 常用连接池：c3p0，dbcp，druid（阿里，监控功能）
+	 -->
+	<context:property-placeholder location="classpath:/jdbc.properties"/>
+	<bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource">
+		<property name="url" value="${url}"></property>
+		<property name="username" value="${usernames}"></property>
+		<property name="password" value="${password}"></property>
+		<property name="driverClassName" value="${driverClass}"></property>
+		<!-- 默认初始化的连接个数 -->
+		<property name="initialSize" value="1"></property>
+		<!-- 最大允许的连接个数 -->
+		<property name="maxActive" value="200"></property>
+		<!-- 最大的等待人数 -->
+		<property name="maxIdle" value="100"></property>
+		<!-- 开启sql监控 -->
+		<property name="filters" value="stat"></property>
+	</bean>
+	<!-- 集成mybatis -->
+	<!-- 配置session工厂 -->
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="dataSource"></property>
+	</bean>
+	<bean id="sessionTemplate" class="org.mybatis.spring.SqlSessionTemplate">
+		<constructor-arg index="0" ref="sqlSessionFactory"></constructor-arg>
+	</bean>
+	<!-- 扫描mybatis的接口映射 -->
+	<bean id="scannerConfigurer" class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<property name="basePackage" value="cn.*..*.dao"></property>
+	</bean>
+	<!-- 配置事务管理器  -->
+	<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+	  <property name="dataSource" ref="dataSource"></property>
+	</bean>
+	<!-- 定义通知 -->
+	<tx:advice id="myAdvice" transaction-manager="transactionManager">
+	  <tx:attributes>
+	    <tx:method name="update*" propagation="REQUIRED" />
+	    <tx:method name="save*" propagation="REQUIRED" />
+	    <tx:method name="delete*" propagation="REQUIRED"/>
+	    <tx:method name="*" read-only="true" />
+	  </tx:attributes>
+	</tx:advice>
+    <!-- 配置aop -->
+   	<aop:config>
+   	  <!-- 定义切点 -->
+   	  <aop:pointcut expression="execution(* cn.*..*.service.*.*(..))" id="myPointcut"/>
+   	  <aop:advisor advice-ref="myAdvice" pointcut-ref="myPointcut"></aop:advisor>
+   	</aop:config>
+</beans>
